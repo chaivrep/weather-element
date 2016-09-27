@@ -1,0 +1,100 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iron-ajax/iron-ajax.html">
+
+<!--
+`weather-element`
+Polymer element to display weather data
+
+@demo demo/index.html 
+-->
+
+<dom-module id="weather-element">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+
+     <template is="dom-repeat" items="{{_data}}">
+        <div id="{{item.key}}">{{item.key}}: {{item.value}}</div>
+    </template>
+
+    <iron-ajax id="conditions"
+      url="http://api.wunderground.com/api/[[key]]/conditions/q/[[state]]/[[city]].json"
+      handle-as="json"
+      on-response="_handleResponse"
+      last-response="{{_ajaxResponse}}">
+    </iron-ajax>
+  </template>
+
+  <script>
+    Polymer({
+
+      is: 'weather-element',
+
+      properties: {
+        prop1: {
+          type: String,
+          value: 'weather-element',
+        },
+        key: {
+          type: String,
+          value: "1dd6a8ec38267788",
+          notify: true,
+          reflectToAttribute: true,
+        },
+        state: {
+          type: String,
+          value: "CA",
+          notify: true,
+          reflectToAttribute: true,
+        },
+        city: {
+          type: String,
+          value: "San_Francisco",
+          notify: true,
+          reflectToAttribute: true,
+        },
+        _ajaxResponse: Object,
+        _data: {
+          type: Object,
+          value: [],
+          notify: true,
+          reflectToAttribute: true,
+        },
+      },
+
+      _handleResponse: function(response) {
+        accumulator = [];
+        this._enumerateObject(accumulator, this._ajaxResponse.current_observation, 'current');
+        console.log('Got response:');
+        console.log(this._ajaxResponse);
+        console.log(accumulator);
+        this._data = accumulator;
+      },
+
+      _enumerateObject: function(accumulator, input, prefix) {
+        for (var propertyName in input) {
+          var value = input[propertyName]; 
+          if (typeof value === 'object') {
+            this._enumerateObject(accumulator, value, prefix + '-' + propertyName);
+          }
+          accumulator.push({'key':prefix + '-' + propertyName, 'value': value});
+        }
+      },
+
+      _callAPI: function() {
+        this.$.conditions.generateRequest();
+        console.log('Calling API');
+        //this.async(this._callAPI, 2000);
+      },
+
+      ready: function() {
+        this._callAPI();
+      }
+
+
+    });
+  </script>
+</dom-module>
