@@ -3,7 +3,7 @@
 
 <!--
 `weather-element`
-Polymer element to display weather data
+Polymer element to display current weather data from Weather Underground API.
 
 @demo demo/index.html 
 -->
@@ -14,14 +14,54 @@ Polymer element to display weather data
       :host {
         display: block;
       }
-    </style>
+      #icon {
+        display: none;
+      }
+      #display-location-full {
+        font-size: 12px;
+        font-style: italic;
+      }
+      #temp {
+        font-size: 32px;
+        font-weight: bold;
+      }
+      #temp span {
+        font-size: 14px;
+        vertical-align: super;
+      }
+      #weather {
+        font-size: 14px;
+        font-weight: bold;
+      }
 
-     <template is="dom-repeat" items="{{_data}}">
-        <div id="{{item.key}}">{{item.key}}: {{item.value}}</div>
+    </style>
+    
+    <template is="dom-if" if="[[_error]]">
+      <div id="error-msg">[[_errorMsg]]</div>
+    </template>
+
+    <template is="dom-if" if="[[!_error]]">
+
+      <div id="icon-url" class="[[_icon]]"><img src="[[_iconUrl]]"></div>
+      
+      <template is="dom-if" if="[[metric]]">
+        <div id="temp">[[_tempC]]&deg;<span>C</span></div>
+      </template>
+      
+      <template is="dom-if" if="[[!metric]]">
+        <div id="temp">[[_tempF]]&deg;<span>F</span></div>
+      </template>
+      
+      <div id="weather">[[_weather]]</div>
+      
+      <div id="icon">[[_icon]]</div>
+
+    <div id="display-location-full">[[_displayLocationFull]]</div>
+
     </template>
 
     <iron-ajax id="conditions"
-      url="http://api.wunderground.com/api/[[key]]/conditions/q/[[state]]/[[city]].json"
+      url="http://api.wunderground.com/api/[[apiKey]]/conditions/q/[[state]]/[[city]].json"
       handle-as="json"
       on-response="_handleResponse"
       last-response="{{_ajaxResponse}}">
@@ -30,71 +70,129 @@ Polymer element to display weather data
 
   <script>
     Polymer({
-
       is: 'weather-element',
-
       properties: {
-        prop1: {
-          type: String,
-          value: 'weather-element',
-        },
-        key: {
+        /** The api key for the Weather Underground API. */
+        apiKey: {
           type: String,
           value: "1dd6a8ec38267788",
           notify: true,
           reflectToAttribute: true,
         },
-        state: {
+        /** The target city. */
+        city: {
+          type: String,
+          value: "Los_Gatos",
+          notify: true,
+          reflectToAttribute: true,
+        },
+        /** True if the temperature should be shown in metric (Celsius). */        
+        metric: {
+          type: Boolean,
+          value: false,
+          notify: true,
+          reflectToAttribute: true,
+        },
+        /** The time to wait in milliseconds before refreshing the API data. */        
+        refreshDelay: {
+          type: Number,
+          value: 900000, /* 15 mins */
+          notify: true,
+          reflectToAttribute: true,
+        },
+        /** The target state. */
+        state: { 
           type: String,
           value: "CA",
           notify: true,
           reflectToAttribute: true,
         },
-        city: {
-          type: String,
-          value: "San_Francisco",
-          notify: true,
-          reflectToAttribute: true,
-        },
-        _ajaxResponse: Object,
-        _data: {
+        /** The response from the API call. */
+        _ajaxResponse: {
           type: Object,
-          value: [],
+        },
+        /** The city and state returned in the API response. */
+        _displayLocationFull: {
+          type: String,
+          value: "N/A",
+          notify: true,
+          reflectToAttribute: true,
+        },
+        /** True if the API returned an error. */
+         _error: {
+          type: Boolean,
+          value: false,
+          notify: true,
+          reflectToAttribute: true,
+        },
+        /** The error message returned by the API. */
+         _errorMsg: {
+          type: String,
+          value: "",
+          notify: true,
+          reflectToAttribute: true,
+        },
+        /** The name of the weather icon returned in the API response. */
+         _icon: {
+          type: String,
+          value: "N/A",
+          notify: true,
+          reflectToAttribute: true,
+        },
+        /** The URL of the waether icon returned in the API response. */
+        _iconUrl: {
+          type: String,
+          value: "N/A",
+          notify: true,
+          reflectToAttribute: true,
+        },
+        /** The temperature in Celsius returned in the API response. */
+        _tempC: {
+          type: String,
+          value: "N/A",
+          notify: true,
+          reflectToAttribute: true,
+        },
+        /** The temperature in Fahrenheit returned in the API response. */
+        _tempF: {
+          type: String,
+          value: "N/A",
+          notify: true,
+          reflectToAttribute: true,
+        },
+        /** The description of the weather (sunny, cloudy, etc.) returned in the API response. */
+        _weather: {
+          type: String,
+          value: "N/A",
           notify: true,
           reflectToAttribute: true,
         },
       },
-
+      /** Pulls the required data from the API response */
       _handleResponse: function(response) {
-        accumulator = [];
-        this._enumerateObject(accumulator, this._ajaxResponse.current_observation, 'current');
-        console.log('Got response:');
-        console.log(this._ajaxResponse);
-        console.log(accumulator);
-        this._data = accumulator;
+        if (!this._ajaxResponse.response.error) {
+          this._displayLocationFull =  this._ajaxResponse.current_observation.display_location.full;
+          this._tempF = Math.round(this._ajaxResponse.current_observation.temp_f);
+          this._tempC = Math.round(this._ajaxResponse.current_observation.temp_c);
+          this._weather = this._ajaxResponse.current_observation.weather;
+          this._icon = this._ajaxResponse.current_observation.icon;
+          this._iconUrl = this._ajaxResponse.current_observation.icon_url;
+          this._error = false;
+        } else {
+          console.log(this._ajaxResponse.response.error.description);
+          this._errorMsg = "Error: " + this._ajaxResponse.response.error.description;
+          this._error = true;
+        } 
       },
-
-      _enumerateObject: function(accumulator, input, prefix) {
-        for (var propertyName in input) {
-          var value = input[propertyName]; 
-          if (typeof value === 'object') {
-            this._enumerateObject(accumulator, value, prefix + '-' + propertyName);
-          }
-          accumulator.push({'key':prefix + '-' + propertyName, 'value': value});
-        }
-      },
-
+      /** Updates the API data. */
       _callAPI: function() {
         this.$.conditions.generateRequest();
         console.log('Calling API');
-        //this.async(this._callAPI, 2000);
+        this.async(this._callAPI, this.refreshDelay);
       },
-
       ready: function() {
         this._callAPI();
       }
-
-
     });
   </script>
 </dom-module>
